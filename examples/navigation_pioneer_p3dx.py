@@ -5,14 +5,16 @@ from pyrep.objects.shape import Shape
 from pyrep.const import PrimitiveShape
 from pyrep.backend import vrep
 from pyrep.robots.mobiles.pioneer_p3dx import PioneerP3dx
+from pyrep.objects.vision_sensor import VisionSensor
 from pyrep.misc.distance import Distance
+from spinup.utils.logx import Logger
 import numpy as np
 import tensorflow as tf
 from math import sqrt, atan2, sin, cos
 import gym
 from gym import spaces
 from spinup import td3
-
+from PIL import Image
 SCENE_FILE = join(dirname(abspath(__file__)), 'scene_pioneer_p3dx_small_navigation.ttt')
 SCENE_FILE = '/home/skye/navigation.ttt'
 MIN_DISTANCE = 0.05
@@ -20,6 +22,7 @@ R_COLLISION = -30
 REWARD_CONST = 40
 TARGET_POS_MIN, TARGET_POS_MAX = [1.0, 1.0], [4.5, 4.5]
 #TARGET_POS_MIN, TARGET_POS_MAX = [-2.0, 1.8], [2.0, 1.8]
+
 class NavigationEnv(gym.Env):
 	
 	def __init__(self):
@@ -28,7 +31,7 @@ class NavigationEnv(gym.Env):
 		self.pr.start()
 		self.agent = PioneerP3dx(0, 2, 16, 'Pioneer_p3dx', 'ultrasonicSensor')
 		self.agent.set_motor_locked_at_zero_velocity(True)
-		self.distance = Distance("Distance")
+		self.distance = Distance('Distance')
 		self.starting_pose = self.agent.get_2d_pose()
 		self.target = Shape.create(type=PrimitiveShape.SPHERE,
 					  size=[0.1, 0.1, 0.1],
@@ -44,6 +47,7 @@ class NavigationEnv(gym.Env):
 								[(2.4, -1.8),(3.6, 1.8)],
 								[(-3.6, -1.8),(2.4, 1.8)]]
 
+		#self.map_sensor = VisionSensor("mapSensor")
 	def shutdown(self):
 		self.pr.stop()
 		self.pr.shutdown()
@@ -55,19 +59,20 @@ class NavigationEnv(gym.Env):
 		target_pos = self.target.get_position(relative_to=self.agent)
 		target_dist = np.sqrt(target_pos[0] ** 2 + target_pos[1] ** 2)
 	
-
+		robot_position = self.agent.get_2d_pose()
 		d = self.distance.read()
 		if d < MIN_DISTANCE:
 			print("collision")
-			return self._get_state(), R_COLLISION, True, {}
+			return self._get_state(), R_COLLISION, True, {'robot_position': robot_position}
 
 		if target_dist < 0.5:
-			return self._get_state(), 80, True, {}
+			return self._get_state(), 150, True, {'robot_position': robot_position}
 	
 		reward =  REWARD_CONST * (self.old_distance - target_dist)
 		self.old_distance = target_dist
 		#print(reward)
-		return self._get_state(), reward, False, {}
+		
+		return self._get_state(), reward, False, {'robot_position': robot_position}
 
 
 	def check_collision(self, target_pos):
@@ -98,7 +103,7 @@ class NavigationEnv(gym.Env):
 			target_pos[1] = -target_pos[1]
 		target_pos = target_pos + [0.025]
 
-		self.agent.set_2d_pose([self.starting_pose[0], self.starting_pose[1], angle])
+		self.agent.set_2d_pose([0, 0, angle])
 		self.target.set_position(target_pos)
 		
 		
@@ -120,10 +125,21 @@ class NavigationEnv(gym.Env):
 		return np.array(sensor_data + target_pos + velocity) # shape (37, )
 
 env = NavigationEnv()
+'''
+env.reset()
+result = env.map_sensor.capture_rgb()
+result = env.map_sensor.capture_rgb()
+print(np.max(result))
+result = (result*255/np.max(result)).astype('uint8')
+img = Image.fromarray(result)
+img.save('navigation.png')
+img.show()
+'''
 
 ac_kwargs = dict(hidden_sizes=[512,512,512], activation=tf.nn.relu)
 logger_kwargs = dict(output_dir='log', exp_name='experiment_name')
-td3(env, ac_kwargs=ac_kwargs, steps_per_epoch=5000, epochs=30, logger_kwargs=logger_kwargs)
+episode_logger_kwargs = dict(output_dir='episode_log', exp_name='experiment_name')
+td3(env, ac_kwargs=ac_kwargs, steps_per_epoch=5000, epochs=20, logger_kwargs=logger_kwargs)
 
 
 print('Done!')
