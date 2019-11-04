@@ -7,23 +7,24 @@ from pyrep.backend import vrep
 from pyrep.robots.mobiles.pioneer_p3dx import PioneerP3dx
 from pyrep.objects.vision_sensor import VisionSensor
 from pyrep.misc.distance import Distance
-from spinup.utils.logx import Logger
+from pyrep.const import JointMode
 import numpy as np
 import tensorflow as tf
-from math import sqrt, atan2, sin, cos
+from math import sqrt, atan2, sin, cos, exp
 import gym
 from gym import spaces
-from spinup import td3
+
 from PIL import Image
+
 SCENE_FILE = join(dirname(abspath(__file__)), 'scene_pioneer_p3dx_small_navigation.ttt')
 SCENE_FILE = '/home/skye/navigation.ttt'
 MIN_DISTANCE = 0.05
-R_COLLISION = -30
-REWARD_CONST = 40
+R_COLLISION = -50
+REWARD_CONST = 50
 TARGET_POS_MIN, TARGET_POS_MAX = [1.0, 1.0], [4.5, 4.5]
-#TARGET_POS_MIN, TARGET_POS_MAX = [-2.0, 1.8], [2.0, 1.8]
+#TARGET_POS_MIN, TARGET_POS_MAX = [-1.5, 2.5], [1.5, 4.5]
 
-class NavigationEnv(gym.Env):
+class PioneerP3dxNavigationEnv(gym.Env):
 	
 	def __init__(self):
 		self.pr = PyRep()
@@ -31,6 +32,7 @@ class NavigationEnv(gym.Env):
 		self.pr.start()
 		self.agent = PioneerP3dx(0, 2, 16, 'Pioneer_p3dx', 'ultrasonicSensor')
 		self.agent.set_motor_locked_at_zero_velocity(True)
+		self.agent.set_joint_mode(JointMode.FORCE)
 		self.distance = Distance('Distance')
 		self.starting_pose = self.agent.get_2d_pose()
 		self.target = Shape.create(type=PrimitiveShape.SPHERE,
@@ -42,8 +44,8 @@ class NavigationEnv(gym.Env):
 		#self.observation_space = spaces.Box(shape=(37,), dtype=np.float32)
 		self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
-		self.obstacle_ranges = [[(-1.7, -2.5),(1.7, -1.5)],
-								[(-1.7, 1.5), (1.7, 2.5)],
+		self.obstacle_ranges = [[(-1.8, -2.5),(1.8, -1.5)],
+								[(-1.8, 1.5), (1.8, 2.5)],
 								[(2.4, -1.8),(3.6, 1.8)],
 								[(-3.6, -1.8),(2.4, 1.8)]]
 
@@ -69,9 +71,10 @@ class NavigationEnv(gym.Env):
 			return self._get_state(), 150, True, {'robot_position': robot_position}
 	
 		reward =  REWARD_CONST * (self.old_distance - target_dist)
+		reward -= 3.0*np.exp(-4*d)
+		
 		self.old_distance = target_dist
 		#print(reward)
-		
 		return self._get_state(), reward, False, {'robot_position': robot_position}
 
 
@@ -86,13 +89,13 @@ class NavigationEnv(gym.Env):
 	def get_target_pos(self):
 		target_pos = list(np.random.uniform(TARGET_POS_MIN, TARGET_POS_MAX))
 		if self.check_collision(target_pos):
-			return [-2.0, 0]		
+			return [2.0, 0.0]		
 		else:
 			return target_pos
 
 
 	def reset(self):
-		#target_pos = list(np.random.uniform(TARGET_POS_MIN, TARGET_POS_MAX))
+		target_pos = list(np.random.uniform(TARGET_POS_MIN, TARGET_POS_MAX))
 		angle = np.random.uniform(-np.pi, np.pi)
 		#print(angle)
 		target_pos = self.get_target_pos()
@@ -101,14 +104,17 @@ class NavigationEnv(gym.Env):
 		
 		if np.random.random() < 0.5:
 			target_pos[1] = -target_pos[1]
+		
 		target_pos = target_pos + [0.025]
+		#target_pos = [0.65, 3.3] + [0.025]
 
 		self.agent.set_2d_pose([0, 0, angle])
 		self.target.set_position(target_pos)
 		
 		
-		#self.agent.set_joint_target_velocities([0,0,0,0])
+		self.agent.set_joint_target_velocities([0,0])
 		self.pr.step()
+		#self.pr.step()
 		target_pos = self.target.get_position(relative_to=self.agent)
 		target_dist = np.sqrt(target_pos[0] ** 2 + target_pos[1] ** 2)
 		self.old_distance = target_dist
@@ -124,23 +130,4 @@ class NavigationEnv(gym.Env):
 		velocity = self.agent.get_velocity()
 		return np.array(sensor_data + target_pos + velocity) # shape (37, )
 
-#env = NavigationEnv()
-'''
-env.reset()
-result = env.map_sensor.capture_rgb()
-result = env.map_sensor.capture_rgb()
-print(np.max(result))
-result = (result*255/np.max(result)).astype('uint8')
-img = Image.fromarray(result)
-img.save('navigation.png')
-img.show()
-'''
 
-#ac_kwargs = dict(hidden_sizes=[512,512,512], activation=tf.nn.relu)
-#logger_kwargs = dict(output_dir='log', exp_name='experiment_name')
-#episode_logger_kwargs = dict(output_dir='episode_log', exp_name='experiment_name')
-#td3(env, ac_kwargs=ac_kwargs, steps_per_epoch=5000, epochs=200, logger_kwargs=logger_kwargs)
-
-
-#print('Done!')
-#env.shutdown()
