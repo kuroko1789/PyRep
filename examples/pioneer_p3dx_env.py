@@ -17,7 +17,7 @@ from gym import spaces
 from PIL import Image
 
 SCENE_FILE = join(dirname(abspath(__file__)), 'scene_pioneer_p3dx_small_navigation.ttt')
-SCENE_FILE = '/home/skye/navigation.ttt'
+SCENE_FILE = '/home/skye/navigation_with_lidar.ttt'
 MIN_DISTANCE = 0.05
 R_COLLISION = -50
 REWARD_CONST = 50
@@ -30,7 +30,7 @@ class PioneerP3dxNavigationEnv(gym.Env):
 		self.pr = PyRep()
 		self.pr.launch(SCENE_FILE, headless=False)
 		self.pr.start()
-		self.agent = PioneerP3dx(0, 2, 16, 'Pioneer_p3dx', 'ultrasonicSensor')
+		self.agent = PioneerP3dx(0, 2, 16, 'Pioneer_p3dx', 'ultrasonicSensor', 'fastHokuyo')
 		self.agent.set_motor_locked_at_zero_velocity(True)
 		self.agent.set_joint_mode(JointMode.FORCE)
 		self.distance = Distance('Distance')
@@ -39,7 +39,7 @@ class PioneerP3dxNavigationEnv(gym.Env):
 					  size=[0.1, 0.1, 0.1],
 					  color=[1.0, 0.1, 0.1],
 					  static=True, respondable=False)
-		high = np.array([np.inf] * 37)
+		high = np.array([np.inf] * 1084)
 		self.action_space = spaces.Box(np.array([0, -1]), np.array([1, 1]), dtype=np.float32)
 		#self.observation_space = spaces.Box(shape=(37,), dtype=np.float32)
 		self.observation_space = spaces.Box(-high, high, dtype=np.float32)
@@ -122,12 +122,13 @@ class PioneerP3dxNavigationEnv(gym.Env):
 
 
 	def _get_state(self):
-		sensor_data = self.agent.get_sensor_data()
-		target_pos = self.target.get_position(relative_to=self.agent)
+		#sensor_data = self.agent.get_sensor_data()
+		sensor_data = self.agent.get_laser_data() # len(sensor_data) = 1080
+		target_pos = self.target.get_position(relative_to=self.agent)[:2]
 		#dist = sqrt(target_pos[0]**2 + target_pos[1]**2)
 		#angle = atan2(target_pos[1], target_pos[0])
 		#print(target_pos)
 		velocity = self.agent.get_velocity()
-		return np.array(sensor_data + target_pos + velocity) # shape (37, )
+		return np.array(sensor_data + target_pos + velocity) # shape (1084, )
 
 
