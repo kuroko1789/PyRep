@@ -24,13 +24,14 @@ REWARD_CONST = 50
 TARGET_POS_MIN, TARGET_POS_MAX = [1.0, 1.0], [4.5, 4.5]
 #TARGET_POS_MIN, TARGET_POS_MAX = [-1.5, 2.5], [1.5, 4.5]
 
-class PioneerP3dxNavigationEnv(gym.Env):
+class NavigationEnv(gym.Env):
 	
-	def __init__(self):
+	def __init__(self, scene_file, robot_class, *args, **kwargs):
 		self.pr = PyRep()
-		self.pr.launch(SCENE_FILE, headless=False)
+		self.pr.launch(scene_file, headless=False)
 		self.pr.start()
-		self.agent = PioneerP3dx(0, 2, 16, 'Pioneer_p3dx', 'ultrasonicSensor', 'fastHokuyo')
+		#self.agent = PioneerP3dx(0, 2, 16, 'Pioneer_p3dx', 'ultrasonicSensor', 'fastHokuyo')
+		self.agent = robot_class(*args, **kwargs)
 		self.agent.set_motor_locked_at_zero_velocity(True)
 		self.agent.set_joint_mode(JointMode.FORCE)
 		self.distance = Distance('Distance')
