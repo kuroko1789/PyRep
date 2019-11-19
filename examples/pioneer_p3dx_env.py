@@ -39,7 +39,8 @@ class PioneerP3dxNavigationEnv(gym.Env):
 					  size=[0.1, 0.1, 0.1],
 					  color=[1.0, 0.1, 0.1],
 					  static=True, respondable=False)
-		high = np.array([np.inf] * 1084)
+		#high = np.array([np.inf] * 1084)
+		high = np.array([np.inf] * 34)
 		self.action_space = spaces.Box(np.array([0, -1]), np.array([1, 1]), dtype=np.float32)
 		#self.observation_space = spaces.Box(shape=(37,), dtype=np.float32)
 		self.observation_space = spaces.Box(-high, high, dtype=np.float32)
@@ -122,13 +123,15 @@ class PioneerP3dxNavigationEnv(gym.Env):
 
 
 	def _get_state(self):
-		#sensor_data = self.agent.get_sensor_data()
-		sensor_data = self.agent.get_laser_data() # len(sensor_data) = 1080
+		#sensor_datas = self.agent.get_sensor_data()
+		sensor_datas = self.agent.get_laser_data() # len(sensor_data) = 1080
+		n = 36
+		sensor_datas = sensor_datas = [min(sensor_datas[i:i + n]) for i in range(0, len(sensor_datas), n)]
 		target_pos = self.target.get_position(relative_to=self.agent)[:2]
 		#dist = sqrt(target_pos[0]**2 + target_pos[1]**2)
 		#angle = atan2(target_pos[1], target_pos[0])
 		#print(target_pos)
 		velocity = self.agent.get_velocity()
-		return np.array(sensor_data + target_pos + velocity) # shape (1084, )
+		return np.array(sensor_datas + target_pos + velocity) # shape (1084, )
 
 
