@@ -472,7 +472,27 @@ getBoxAdjustedMatrixAndFacingAngle=function(inInts,inFloats,inStrings,inBuffer)
     return {},m,{},''
 end
 
+stateValidation=function(state)
+    
+    -- Read the current state:
+    local p=sim.getObjectPosition(robotHandle,-1)
+    -- Apply the provided state:
+    sim.setObjectPosition(robotHandle,-1,{state[1],state[2],p[3]})
+
+    local minDistance = 0.15
+    local maxDistance = 1.0
+    local res,d=sim.checkDistance(collisionPairs[1],collisionPairs[2],maxDistance)
+    local pass= (res==1) and (d[7]>minDistance)
+
+    sim.setObjectPosition(robotHandle,-1,p)
+
+    return pass
+
+end
+
+
 getNonlinearPathMobile=function(inInts,inFloats,inStrings,inBuffer)
+   
     algorithm = inStrings[1]
     robotHandle = inInts[1]
     targetHandle = inInts[2]
@@ -480,7 +500,7 @@ getNonlinearPathMobile=function(inInts,inFloats,inStrings,inBuffer)
     ignoreCollisions=inInts[4]
     bd=inFloats[1]
     path_pts=inInts[5]
-
+    
     collisionPairs={collisionHandle,sim.handle_all}
 
     if ignoreCollisions==1 then
@@ -497,6 +517,8 @@ getNonlinearPathMobile=function(inInts,inFloats,inStrings,inBuffer)
     if collisionPairs ~= nil then
         simOMPL.setCollisionPairs(t, collisionPairs)
     end
+
+    simOMPL.setStateValidationCallback(t,'stateValidation')
 
     startpos=sim.getObjectPosition(robotHandle,-1)
     startorient=sim.getObjectOrientation(robotHandle,-1)
