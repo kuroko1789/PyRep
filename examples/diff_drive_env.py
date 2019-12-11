@@ -4,7 +4,6 @@ from pyrep.robots.mobiles.turtlebot import TurtleBot
 from pyrep.objects.shape import Shape
 from pyrep.const import PrimitiveShape
 from pyrep.backend import vrep
-from pyrep.robots.mobiles.pioneer_p3dx import PioneerP3dx
 from pyrep.objects.vision_sensor import VisionSensor
 from pyrep.misc.distance import Distance
 from pyrep.const import JointMode
@@ -16,12 +15,10 @@ from gym import spaces
 
 from PIL import Image
 
-SCENE_FILE = join(dirname(abspath(__file__)), 'scene_pioneer_p3dx_small_navigation.ttt')
-SCENE_FILE = '/home/skye/navigation_with_lidar.ttt'
-MIN_DISTANCE = 0.05
+MIN_DISTANCE = 0.1
 R_COLLISION = -50
 REWARD_CONST = 50
-TARGET_POS_MIN, TARGET_POS_MAX = [1.0, 1.0], [4.5, 4.5]
+TARGET_POS_MIN, TARGET_POS_MAX = [1.0, 1.0], [4.0, 4.0]
 #TARGET_POS_MIN, TARGET_POS_MAX = [-1.5, 2.5], [1.5, 4.5]
 
 class NavigationEnv(gym.Env):
@@ -42,7 +39,7 @@ class NavigationEnv(gym.Env):
 					  static=True, respondable=False)
 		#high = np.array([np.inf] * 1084)
 		high = np.array([np.inf] * 34)
-		self.action_space = spaces.Box(np.array([0, -1]), np.array([1, 1]), dtype=np.float32)
+		self.action_space = spaces.Box(np.array([0, -0.7]), np.array([0.7, 0.7]), dtype=np.float32)
 		#self.observation_space = spaces.Box(shape=(37,), dtype=np.float32)
 		self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
@@ -73,7 +70,7 @@ class NavigationEnv(gym.Env):
 			return self._get_state(), 150, True, {'robot_position': robot_position}
 	
 		reward =  REWARD_CONST * (self.old_distance - target_dist)
-		reward -= 3.0*np.exp(-4*d)
+		#reward -= 3.0*np.exp(-4*d)
 		
 		self.old_distance = target_dist
 		#print(reward)
